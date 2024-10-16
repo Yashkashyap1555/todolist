@@ -1,70 +1,112 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import '../css/todolist.css'
+import axios from "axios"
 
 const InitialData = {
-  name: "",
+  task: "",
+  id: 0,
 };
 
 const TodoList = () => {
-  const [task, setTask] = useState(InitialData);
+  const [taskdata, setTaskData] = useState(InitialData);
   const [taskList, setTaskList] = useState([]);
-  console.log(taskList, "8767");
 
   const [edit, setEdit] = useState(false);
-  const [editIndex, setEditIndex] = useState(null);
+  // const [showId, setShowId] = useState();
 
   const ValueChange = (e) => {
-    const { name, value, id } = e.target;
-    setTask({
-      ...task, 
-      [id]:task.id + 1, 
+    const { name, value } = e.target;
+    setTaskData({
+      ...taskdata,  
       [name]: value,
     });
   };
 
-  const ValueAdd = (event) => {
-   
+  const ValueAdd = async (event) => {
+    console.log("TASKDTA==",JSON.stringify(taskdata));
     event.preventDefault();
-    if (edit) {
-        const updatedTaskList = taskList.map((item, index) =>
-          index === editIndex ? task : item
-        );
-        setTaskList(updatedTaskList);
-        setEdit(false);
-        setEditIndex(null);
+    try {
+      if (taskdata.id) {
+        const apiToEdit = await axios.put(`http://localhost:3002/todoedit/${taskdata.id}`, taskdata);
+          console.log("apiToEdit==",JSON.stringify(apiToEdit));
+          if (apiToEdit.status === 200){
+            console.log("your task is updated");
+            handleGetAllTodoList();
+          }
       } else {
-      
-        setTaskList([...taskList, task]);
+        const apiTodoAdd = await axios.post("http://localhost:3002/todolist",taskdata)
+        // console.log(apiTodoAdd, "apitodoadd")
+        if(apiTodoAdd.status === 201){
+          console.log("your task is added")
+          handleGetAllTodoList();
+        }
       }
-      setTask(InitialData); 
-    };
 
-  const ValueDelete = (Data) => {
-    console.log(Data, "confirm delete");
-    const valuefilter = taskList.filter((value, i) => i !== Data);
-    setTaskList(valuefilter);
+      
+      
+    } catch (error) {
+      console.log(error.message)
+      
+    }
+    
+  }
+  const handleGetAllTodoList = async(req, res) => {
+    try {
+      const apiTodoListing = await axios.get("http://localhost:3002/gettodolist")
+      console.log(apiTodoListing, "apitodolistcheck")
+      if(apiTodoListing.status === 200){
+        const {data} = apiTodoListing.data
+        setTaskList(data)
+      }
+      
+    } catch (error) {
+      console.log(error.message)
+      
+    }
+  }
+  useEffect(()=>{
+    handleGetAllTodoList()},
+  []);
+
+  const ValueDelete = async(id) => {
+    console.log(id);
+    try {
+      const apiTodoDelete = await axios.delete(`http://localhost:3002/tododelete/${id}`);
+      if(apiTodoDelete.status === 200){
+        console.log("your task deleted successfully")
+        handleGetAllTodoList();
+      
+      }
+      
+    } catch (error) {
+      console.log(error.message)
+    }
   };
 
-  const ValueEdit = (i) => {
-    const taskToEdit = taskList[i];
-    setTask(taskToEdit);
+  const ValueEdit = async (taskObj) => {
     setEdit(true);
-    setEditIndex(i); 
+    setTaskData({
+      task: taskObj.task,
+      id: taskObj._id,
+    })
+    // setShowId(id)
+   
   };
 
-  const { name } = task;
+  const { task, id } = taskdata;
   return (
     <>
     <div className="container">
       <div>
         <h2>To-do List</h2>
         <input
-          name="name"
-          value={name}
+          name="task"
+          value={task}
           type="text"
           placeholder="enter yout task"
           onChange={ValueChange}
         />
+        <input type="hidden" name="id" id="id" value={id} />
         <button onClick={ValueAdd}>{edit ? 'Edit' : 'Add'}</button>
       </div>
       <div className="table-box">
@@ -75,10 +117,10 @@ const TodoList = () => {
           </tr>
           {taskList?.map((value, i) => (
             <tr key={value.id}>
-              <td>{value.name}</td>
+              <td>{value.task}</td>
               <td>
-                <button className="table-btn" onClick={() => ValueDelete(i)}>delete</button>
-                <button className="table-edit-btn" onClick={() => ValueEdit(i)}>Edit</button>
+                <button className="table-btn" onClick={() => ValueDelete(value._id)}>delete</button>
+                <button className="table-edit-btn" onClick={() => ValueEdit(value)}>Edit</button>
               </td>
             </tr>
           ))}
